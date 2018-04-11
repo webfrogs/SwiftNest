@@ -1,4 +1,5 @@
 INSTALL_PATH?=/usr/local/bin
+INSTALL_NAME?=swift-nest
 
 .PHONY: debug
 
@@ -9,8 +10,8 @@ release:
 	swift build -c release
 
 install: release
-	cp .build/release/SwiftNest $(INSTALL_PATH)
+	cp .build/release/SwiftNest $(INSTALL_PATH)/$(INSTALL_NAME)
 
 uninstall:
-	@[ -f $(INSTALL_PATH)/SwiftNest ] && rm $(INSTALL_PATH)/SwiftNest || true 
+	@[ -f $(INSTALL_PATH)/$(INSTALL_NAME) ] && rm $(INSTALL_PATH)/$(INSTALL_NAME) || true 
 	@echo "Done"
