@@ -1,0 +1,16 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "Transformers",
+        "repositoryURL": "https://github.com/webfrogs/Transformers.git",
+        "state": {
+          "branch": null,
+          "revision": "63ea554244ad45a64e37031777e58043ecdb3f9f",
+          "version": "1.0.0"
+        }
+      }
+    ]
+  },
+  "version": 1
+}
