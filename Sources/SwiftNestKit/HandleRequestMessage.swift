@@ -12,8 +12,10 @@ extension RequestMethod {
         switch self {
         case .initialize:
             return RequestMethod.handleInitialize
-        case .textDocHover:
-            return RequestMethod.handleTextDocHover
+        case .textDocCompletion:
+            return RequestMethod.handleTextCompletion
+        case .completionItemResolve:
+            return RequestMethod.handleCompletionItemResolve
         default:
             // done nothing
             return { (msg: RequestMessageProtocol) -> MethodResultProtocol? in return nil }
@@ -44,7 +46,24 @@ extension RequestMethod {
         return result
     }
 
-    static func handleTextDocHover(msg: RequestMessageProtocol) throws -> MethodResultProtocol? {
+    static func handleCompletionItemResolve(msg: RequestMessageProtocol) throws -> MethodResultProtocol? {
+        guard let params = msg.params as? [String: Any] else {
+            throw ResponseError.internalError
+        }
+
+        let demoItem: [String: Any] = [
+            "label2": "label2",
+            "kind2": 3,
+            "detail2": "detail2",
+            "documentation2": "documentation2",
+            "sortText2": "sortText2",
+            ]
+
+
+        return demoItem
+    }
+
+    static func handleTextCompletion(msg: RequestMessageProtocol) throws -> MethodResultProtocol? {
         guard let params = msg.params as? [String: Any] else {
             throw ResponseError.internalError
         }
@@ -56,10 +75,71 @@ extension RequestMethod {
                 throw RpcErrorCode.invalidParams.toResponseError(msgID: msg.id)
         }
 
-        let file = URL(string: fileURI)
-        Logger.debug(file?.path ?? "")
+        guard let file = URL(string: fileURI) else {
+            Logger.debug("can not get file path.")
+            throw RpcErrorCode.invalidParams.toResponseError(msgID: msg.id)
+        }
+
+        guard let fileHandle = try? FileHandle(forReadingFrom: file) else {
+            Logger.debug("can not get file path.")
+            throw RpcErrorCode.invalidParams.toResponseError(msgID: msg.id)
+        }
+
+        defer {
+            fileHandle.closeFile()
+        }
+
+        let bufferLength = 100
+        var found = false
+        var currentOffset: UInt64 = 0
+        var lineCount = 0
+        var fileData: Data
+        repeat {
+            fileData = fileHandle.readData(ofLength: bufferLength)
+            if fileData.isEmpty {
+                break
+            }
+
+            let newlineChar = "\n".data(using: .utf8)!
+
+            var searchStartIndex = fileData.startIndex
+            while true {
+                if lineCount == line {
+                    currentOffset += UInt64(character)
+//                    Logger.debug("\(currentOffset)")
+                    found = true
+                    break
+                }
+
+                guard let newlineRange = fileData
+                    .range(of: newlineChar, options: [], in: searchStartIndex..<fileData.endIndex)
+                    else {
+                        currentOffset += UInt64(fileData.endIndex-searchStartIndex)
+                        break
+                }
+//                Logger.debug("\(newlineRange.lowerBound)---\(currentOffset)---\(searchStartIndex)")
+                currentOffset += UInt64(newlineRange.lowerBound - searchStartIndex + 1)
+                searchStartIndex = newlineRange.lowerBound.advanced(by: 1)
+                lineCount += 1
+            }
+
+        } while !found
 
 
-        return nil
+        let demoItem: [String: Any] = [
+            "label": "label",
+            "kind": 3,
+            "detail": "detail",
+            "documentation": "documentation",
+            "sortText": "sortText",
+        ]
+
+        let result: [String: Any] = [
+            "isIncomplete": false,
+            "items": [demoItem]
+        ]
+
+
+        return result
     }
 }

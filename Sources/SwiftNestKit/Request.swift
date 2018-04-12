@@ -6,6 +6,7 @@ public enum RequestMethod: String {
     case shutdown
     case textDocHover = "textDocument/hover"
     case textDocCompletion = "textDocument/completion"
+    case completionItemResolve = "completionItem/resolve"
 }
 
 
@@ -45,7 +46,7 @@ public struct RequestMessage: RequestMessageProtocol {
         // return nil means rpc return parse error to vscode
 
         switch method {
-        case .initialize, .textDocHover, .textDocCompletion:
+        case .initialize, .textDocHover, .textDocCompletion, .completionItemResolve:
             // parmas is dictionary and can be nil
             if params == nil {
                 self.params = nil

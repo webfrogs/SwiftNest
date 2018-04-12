@@ -19,7 +19,7 @@ extension RpcNotification {
     static func handleNotification(method: Method, params: Any?) {
         switch method {
         case .exit:
-            Logger.info("Ready to exit.")
+            Logger.info("Exit.")
             exit(0)
         default:
             Logger.debug("Nothing happens with this notification \(method.rawValue)")

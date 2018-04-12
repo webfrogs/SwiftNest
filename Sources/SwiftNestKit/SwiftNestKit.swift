@@ -51,6 +51,8 @@ public class SwiftNestKit {
             RequestMethod.shutdown,
             RequestMethod.initialize,
 //            RequestMethod.textDocHover,
+            RequestMethod.textDocCompletion,
+            RequestMethod.completionItemResolve,
         ]
 
         for method in registerMethods {
@@ -91,11 +93,12 @@ private extension SwiftNestKit {
         SwiftNestKit.stdinEmptyCount = 0
 
         do {
+            Logger.debug(String(data: stdinData, encoding: String.Encoding.utf8) ?? "")
             let rpc = try p_handleRpcProtocol(data: stdinData)
             if rpc.headers.count == 0 || rpc.body.count == 0 {
+                Logger.error("rpc protocol handle error.")
                 throw RpcErrorCode.parseError.toResponseError()
             }
-            Logger.debug(String(data: stdinData, encoding: String.Encoding.utf8) ?? "")
 
             let bodyLength = rpc.headers
                 .first { (header) -> Bool in
