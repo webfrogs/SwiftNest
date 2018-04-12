@@ -12,7 +12,6 @@ import Foundation
 public protocol JsonObjectType {}
 extension Dictionary: JsonObjectType where Key==String, Value== Any {}
 
-///
 public protocol MethodResultProtocol {
     func toJsonObject() -> JsonObjectType
 }
@@ -122,12 +121,12 @@ private extension SwiftNestKit {
                 // request message
                 guard let method = RequestMethod(rawValue: methodStr) else {
                     Logger.info("Not implement \(methodStr) right now.")
-                    throw RpcErrorCode.requestCancelled.toResponseError()
+                    throw RpcErrorCode.requestCancelled.toResponseError(msgID: msgID)
                 }
 
                 guard let params = bodyDic["params"]
                     , let request = RequestMessage(id: msgID, method: method, params: params) else {
-                    throw RpcErrorCode.parseError.toResponseError()
+                    throw RpcErrorCode.parseError.toResponseError(msgID: msgID)
                 }
 
                 let respData = request.response().toData()
@@ -143,12 +142,12 @@ private extension SwiftNestKit {
             }
 
         } catch let error as ResponseError {
-            let respData = Response.failure(msgID: nil, data: error).toData()
+            let respData = Response.failure(error).toData()
             Logger.info("something wrong,response ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
             kStdout.write(respData)
         } catch {
             Logger.error("Catch unknown error.")
-            let respData = Response.failure(msgID: nil, data: RpcErrorCode.unknownErrorCode.toResponseError()).toData()
+            let respData = Response.failure(RpcErrorCode.unknownErrorCode.toResponseError()).toData()
             Logger.error("response ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
             kStdout.write(respData)
         }

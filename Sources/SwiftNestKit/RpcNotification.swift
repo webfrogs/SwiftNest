@@ -10,6 +10,7 @@ import Foundation
 struct RpcNotification {
     enum Method: String {
         case initialized
+        case exit
         case workspaceDidChangeConfig = "workspace/didChangeConfiguration"
     }
 }
@@ -17,8 +18,9 @@ struct RpcNotification {
 extension RpcNotification {
     static func handleNotification(method: Method, params: Any?) {
         switch method {
-        case .initialized:
-            Logger.info("Received \(method.rawValue) notification.")
+        case .exit:
+            Logger.info("Ready to exit.")
+            exit(0)
         default:
             Logger.info("Nothing happens with this notification \(method.rawValue)")
         }

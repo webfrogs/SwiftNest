@@ -22,19 +22,20 @@ enum RpcErrorCode: Int {
     // Defined by the protocol.
     case requestCancelled = -32800;
 
-    func toResponseError(msg: String = "") -> ResponseError {
-        return ResponseError(code: self, message: msg)
+    func toResponseError(msgID: Int? = nil, msg: String = "") -> ResponseError {
+        return ResponseError(code: self, message: msg, msgID: msgID)
     }
 }
 
 enum Response {
     case success(ResponseMessageProtocol)
-    case failure(msgID: Int?, data: ResponseError)
+    case failure(ResponseError)
 }
 
 public struct ResponseError: Error {
     let code: RpcErrorCode
     let message: String
+    let msgID: Int?
 
     func toJsonDic() -> [String: Any]  {
         return [
@@ -62,7 +63,9 @@ struct ResponseMessage: ResponseMessageProtocol {
 extension RequestMessageProtocol {
     func response() -> Response {
         guard let handler = SwiftNestKit.instance.getHandler(method: method) else {
-            return .failure(msgID: id, data: RpcErrorCode.unknownErrorCode.toResponseError(msg: "unknown"))
+            let err = RpcErrorCode.requestCancelled
+                .toResponseError(msgID: id, msg: "No handler is found.")
+            return .failure(err)
         }
 
         do {
@@ -70,9 +73,10 @@ extension RequestMessageProtocol {
             let respMsg = ResponseMessage(jsonrpc: .v2_0, id: id, result: jsonObject)
             return .success(respMsg)
         } catch let error as ResponseError {
-            return .failure(msgID: id, data: error)
+            return .failure(error)
         } catch {
-            return .failure(msgID: id, data: RpcErrorCode.unknownErrorCode.toResponseError(msg: "unknown"))
+            let err = RpcErrorCode.unknownErrorCode.toResponseError(msgID: id, msg: "unknown")
+            return .failure(err)
         }
     }
 }
@@ -89,9 +93,9 @@ extension Response {
             messageID = respMsg.id
             contentMap["id"] = respMsg.id
             contentMap["result"] = respMsg.result ?? NSNull()
-        case let .failure(msgID, error):
-            messageID = msgID
-            contentMap["id"] = msgID ?? NSNull()
+        case let .failure(error):
+            messageID = error.msgID
+            contentMap["id"] = messageID ?? NSNull()
             contentMap["error"] = error.toJsonDic()
         }
 

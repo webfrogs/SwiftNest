@@ -40,6 +40,7 @@ public struct RequestMessage: RequestMessageProtocol {
     public let params: ParamsType?
 
     init?(id: Int, method: RequestMethod, params: Any?) {
+        // return nil means rpc return parse error to vscode
         switch method {
         case .initialize:
             if params == nil {
@@ -51,7 +52,7 @@ public struct RequestMessage: RequestMessageProtocol {
             }
             self.params = dic
         case .shutdown:
-            return nil
+            self.params = nil
         }
 
         self.id = id
