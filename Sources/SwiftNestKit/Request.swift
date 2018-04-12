@@ -4,6 +4,8 @@ import Transformers
 public enum RequestMethod: String {
     case initialize
     case shutdown
+    case textDocHover = "textDocument/hover"
+    case textDocCompletion = "textDocument/completion"
 }
 
 
@@ -41,8 +43,10 @@ public struct RequestMessage: RequestMessageProtocol {
 
     init?(id: Int, method: RequestMethod, params: Any?) {
         // return nil means rpc return parse error to vscode
+
         switch method {
-        case .initialize:
+        case .initialize, .textDocHover, .textDocCompletion:
+            // parmas is dictionary and can be nil
             if params == nil {
                 self.params = nil
                 break
@@ -52,6 +56,7 @@ public struct RequestMessage: RequestMessageProtocol {
             }
             self.params = dic
         case .shutdown:
+            // params is always nil
             self.params = nil
         }
 

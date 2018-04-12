@@ -46,10 +46,17 @@ public class SwiftNestKit {
     public static let instance = SwiftNestKit()
 
     private init () {
-        register(method: .shutdown) { (msg) -> MethodResultProtocol? in
-            // Do nothing when receive a shutdown message.
-            return nil
+        let registerMethods:[RequestMethod] = [
+            RequestMethod.shutdown,
+            RequestMethod.initialize,
+//            RequestMethod.textDocHover,
+        ]
+
+        for method in registerMethods {
+            register(method: method, handler: method.getHandler())
         }
+
+
         NotificationCenter.default.addObserver(self, selector: #selector(p_receivedInputData(notification:)), name: .NSFileHandleDataAvailable, object: nil)
     }
 
@@ -120,7 +127,7 @@ private extension SwiftNestKit {
             if let msgID: Int = bodyDic.value(key: "id") {
                 // request message
                 guard let method = RequestMethod(rawValue: methodStr) else {
-                    Logger.info("Not implement \(methodStr) right now.")
+                    Logger.info("Not implement meesage \(methodStr) right now.")
                     throw RpcErrorCode.requestCancelled.toResponseError(msgID: msgID)
                 }
 
