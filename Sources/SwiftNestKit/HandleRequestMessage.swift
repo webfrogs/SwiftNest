@@ -57,7 +57,7 @@ extension RequestMethod {
         }
 
         let file = URL(string: fileURI)
-        Logger.info(file?.path ?? "")
+        Logger.debug(file?.path ?? "")
 
 
         return nil

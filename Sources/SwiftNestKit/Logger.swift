@@ -13,8 +13,12 @@ struct Logger {
     }
 
     static func info(_ msg: String) {
-#if DEBUG
         NSLog("SwiftNestKit[info]: " + msg)
+    }
+
+    static func debug(_ msg: String) {
+#if DEBUG
+        NSLog("SwiftNestKit[debug]: " + msg)
 #endif
     }
 }

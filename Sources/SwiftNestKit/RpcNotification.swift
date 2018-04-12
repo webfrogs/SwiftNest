@@ -22,7 +22,7 @@ extension RpcNotification {
             Logger.info("Ready to exit.")
             exit(0)
         default:
-            Logger.info("Nothing happens with this notification \(method.rawValue)")
+            Logger.debug("Nothing happens with this notification \(method.rawValue)")
         }
     }
 }

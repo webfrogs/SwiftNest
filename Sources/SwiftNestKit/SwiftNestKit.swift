@@ -37,6 +37,7 @@ public extension SwiftNestKit {
     }
 
     func start() {
+        Logger.info("Running...")
         kStdin.waitForDataInBackgroundAndNotify()
         RunLoop.main.run()
     }
@@ -83,7 +84,7 @@ private extension SwiftNestKit {
             if SwiftNestKit.stdinEmptyCount >= SwiftNestKit.kMaxStdinEmptyCount {
                 exit(1)
             }
-            Logger.info("standard input is empty. Ignore")
+            Logger.debug("standard input is empty. Ignore")
             SwiftNestKit.stdinEmptyCount += 1
             return
         }
@@ -94,7 +95,7 @@ private extension SwiftNestKit {
             if rpc.headers.count == 0 || rpc.body.count == 0 {
                 throw RpcErrorCode.parseError.toResponseError()
             }
-            Logger.info(String(data: stdinData, encoding: String.Encoding.utf8) ?? "")
+            Logger.debug(String(data: stdinData, encoding: String.Encoding.utf8) ?? "")
 
             let bodyLength = rpc.headers
                 .first { (header) -> Bool in
@@ -127,7 +128,7 @@ private extension SwiftNestKit {
             if let msgID: Int = bodyDic.value(key: "id") {
                 // request message
                 guard let method = RequestMethod(rawValue: methodStr) else {
-                    Logger.info("Not implement meesage \(methodStr) right now.")
+                    Logger.debug("Not implement meesage \(methodStr) right now.")
                     throw RpcErrorCode.requestCancelled.toResponseError(msgID: msgID)
                 }
 
@@ -137,20 +138,20 @@ private extension SwiftNestKit {
                 }
 
                 let respData = request.response().toData()
-                Logger.info("resp ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
+                Logger.debug("resp ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
                 kStdout.write(respData)
             } else {
                 // it's notification message, do not response
                 if let notiMethod = RpcNotification.Method(rawValue: methodStr) {
                     RpcNotification.handleNotification(method: notiMethod, params: bodyDic["params"])
                 } else {
-                    Logger.info("SwiftNest don't have a  notification type \(methodStr) right now. maybe add it later.")
+                    Logger.debug("SwiftNest don't have a  notification type \(methodStr) right now. maybe add it later.")
                 }
             }
 
         } catch let error as ResponseError {
             let respData = Response.failure(error).toData()
-            Logger.info("something wrong,response ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
+            Logger.debug("something wrong,response ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
             kStdout.write(respData)
         } catch {
             Logger.error("Catch unknown error.")
