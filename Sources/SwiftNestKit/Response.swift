@@ -21,6 +21,10 @@ enum RpcErrorCode: Int {
 
     // Defined by the protocol.
     case requestCancelled = -32800;
+
+    func toResponseError(msg: String = "") -> ResponseError {
+        return ResponseError(code: self, message: msg)
+    }
 }
 
 enum Response {
@@ -28,13 +32,9 @@ enum Response {
     case failure(msgID: Int?, data: ResponseError)
 }
 
-struct ResponseError: Error {
+public struct ResponseError: Error {
     let code: RpcErrorCode
     let message: String
-
-    static var unknown: ResponseError {
-        return ResponseError(code: .unknownErrorCode, message: "unknown")
-    }
 
     func toJsonDic() -> [String: Any]  {
         return [
@@ -42,56 +42,70 @@ struct ResponseError: Error {
             "message": message,
         ]
     }
+
+    public static var internalError: ResponseError {
+        return RpcErrorCode.internalError.toResponseError()
+    }
 }
 
 public protocol ResponseMessageProtocol: MessageProtocol {
     var id: Int? { get }
-    var result: Any? { get }
+    var result: JsonObjectType? { get }
 }
 
 struct ResponseMessage: ResponseMessageProtocol {
     let jsonrpc: JsonRpcVerison
     let id: Int?
-    let result: Any?
+    let result: JsonObjectType?
 }
 
-
-extension Request {
+extension RequestMessageProtocol {
     func response() -> Response {
-        guard let handler = SwiftNestKit.instance.getHandler(method: message.method) else {
-            return .failure(msgID: message.id, data: ResponseError.unknown)
+        guard let handler = SwiftNestKit.instance.getHandler(method: method) else {
+            return .failure(msgID: id, data: RpcErrorCode.unknownErrorCode.toResponseError(msg: "unknown"))
         }
 
         do {
-            let data = try handler(message)
-            let respMsg = ResponseMessage(jsonrpc: .v2_0, id: message.id, result: data)
+            let jsonObject = try handler(self)?.toJsonObject()
+            let respMsg = ResponseMessage(jsonrpc: .v2_0, id: id, result: jsonObject)
             return .success(respMsg)
         } catch let error as ResponseError {
-            return .failure(msgID: message.id, data: error)
+            return .failure(msgID: id, data: error)
         } catch {
-            return .failure(msgID: message.id, data: ResponseError.unknown)
+            return .failure(msgID: id, data: RpcErrorCode.unknownErrorCode.toResponseError(msg: "unknown"))
         }
     }
 }
+
 
 extension Response {
     func toData() -> Data {
         var contentMap: [String: Any] = [:]
         contentMap["jsonrpc"] = JsonRpcVerison.v2_0.rawValue
 
+        let messageID: Int?
         switch self {
         case let .success(respMsg):
+            messageID = respMsg.id
             contentMap["id"] = respMsg.id
-            contentMap["result"] = respMsg.result
+            contentMap["result"] = respMsg.result ?? NSNull()
         case let .failure(msgID, error):
-            contentMap["id"] = msgID
+            messageID = msgID
+            contentMap["id"] = msgID ?? NSNull()
             contentMap["error"] = error.toJsonDic()
         }
 
 
         let respContentData: Data
         do {
-            respContentData = try JSONSerialization.data(withJSONObject: contentMap, options: [])
+            if JSONSerialization.isValidJSONObject(contentMap) {
+                respContentData = try JSONSerialization.data(withJSONObject: contentMap, options: [])
+            } else {
+                Logger.error("response map can't convert to json data.")
+                let msgIDJsonStr = messageID == nil ? "null": "\(messageID!)"
+                respContentData = "{\"error\"=\(RpcErrorCode.internalError),\"id\"=\(msgIDJsonStr)\"}"
+                    .data(using: String.Encoding.utf8)!
+            }
         } catch {
             respContentData = """
 {
