@@ -34,9 +34,14 @@ extension RequestMethod {
             "triggerCharacters": ["."],
             ]
 
+        let textDocumentSyncMap: [String: Any] = [
+            "change": 1
+        ]
+
         let capabilityMap: [String: Any] = [
 //        "hoverProvider": true,
-            "completionProvider": completionMap
+            "completionProvider": completionMap,
+            "textDocumentSync": 1,
         ]
 
         let result: [String: Any] = [

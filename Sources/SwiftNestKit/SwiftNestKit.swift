@@ -22,18 +22,16 @@ extension Dictionary: MethodResultProtocol where Key==String, Value== Any {
     }
 }
 
-public typealias MethodHandler = (RequestMessageProtocol) throws -> MethodResultProtocol? 
-
-
+public typealias MethodHandler = (RequestMessageProtocol) throws -> MethodResultProtocol?
 
 
 public extension SwiftNestKit {
     func register(method: RequestMethod, handler: @escaping MethodHandler) {
-        MethodHanlderMap[method] = handler
+        _methodHanlderMap[method] = handler
     }
 
     func getHandler(method: RequestMethod) -> MethodHandler? {
-        return MethodHanlderMap[method]
+        return _methodHanlderMap[method]
     }
 
     func start() {
@@ -66,13 +64,17 @@ public class SwiftNestKit {
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
-    private var MethodHanlderMap: [RequestMethod: MethodHandler] = [:]
+    private var _methodHanlderMap: [RequestMethod: MethodHandler] = [:]
 
     private let kStdin = FileHandle.standardInput
     private let kStdout = FileHandle.standardOutput
 
     private static let kMaxStdinEmptyCount = 50
     private static var stdinEmptyCount = 0
+
+
+    private var _unhandledData: Data?
+    private var _unhandleContentLength = 0
 }
 
 private extension SwiftNestKit {
@@ -91,29 +93,128 @@ private extension SwiftNestKit {
             return
         }
         SwiftNestKit.stdinEmptyCount = 0
+        Logger.debug(String(data: stdinData, encoding: String.Encoding.utf8) ?? "")
 
         do {
-            Logger.debug(String(data: stdinData, encoding: String.Encoding.utf8) ?? "")
-            let rpc = try p_handleRpcProtocol(data: stdinData)
-            if rpc.headers.count == 0 || rpc.body.count == 0 {
-                Logger.error("rpc protocol handle error.")
-                throw RpcErrorCode.parseError.toResponseError()
-            }
 
-            let bodyLength = rpc.headers
-                .first { (header) -> Bool in
-                    return header.name == "Content-Length"
+            try p_handleNewStdin(stdinData)
+
+        } catch let error as ResponseError {
+            let respData = Response.failure(error).toData()
+            Logger.debug("something wrong,response ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
+            kStdout.write(respData)
+        } catch {
+            Logger.error("Catch unknown error.")
+            let respData = Response.failure(RpcErrorCode.unknownErrorCode.toResponseError()).toData()
+            Logger.error("response ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
+            kStdout.write(respData)
+        }
+
+    }
+
+}
+
+// MARK: - Extension: Handle LSP
+fileprivate extension SwiftNestKit {
+    func p_handleNewStdin(_ input: Data) throws {
+        let headerSeparator = "\r\n".data(using: .utf8)!
+
+        var handleData: Data
+        if let unhandledData = _unhandledData {
+            Logger.debug("Found unhandled data.")
+            handleData = unhandledData + input
+        } else {
+            handleData = input
+        }
+
+        if _unhandleContentLength > 0 {
+            if _unhandleContentLength > handleData.count {
+                return
+            } else {
+                let body = handleData[..<self._unhandleContentLength]
+                self.p_handleLanguageServerPotocol(data: body)
+                self._unhandleContentLength = 0
+
+                handleData = handleData[self._unhandleContentLength...]
+            }
+        }
+
+
+        var leftDataRange: Range<Data.Index>?
+        var searchStart = handleData.startIndex
+        while true {
+            guard let separatorRange = handleData
+                .range(of: headerSeparator, options: [], in: searchStart..<handleData.endIndex)
+                else {
+                    if searchStart != handleData.endIndex {
+                        leftDataRange = searchStart..<handleData.endIndex
+                    }
+                    break
+            }
+            let headerData = handleData[searchStart..<separatorRange.lowerBound]
+            searchStart = separatorRange.lowerBound.advanced(by: headerSeparator.count)
+
+            if headerData.count == 0 {
+                // found header end, read body from content-length
+//                Logger.debug("Found end of header")
+                guard _unhandleContentLength > 0 else {
+                    Logger.error("can not find valid content length.")
+                    throw RpcErrorCode.parseError.toResponseError()
                 }
-                .flatMap { (header) -> Int? in
-                    return Int(header.value)
+
+                let leftDataLength = handleData.endIndex - searchStart
+
+
+                if leftDataLength < _unhandleContentLength {
+                    _unhandledData = handleData[searchStart...]
+                    return
+                }
+
+                let first = searchStart
+                searchStart = searchStart.advanced(by: _unhandleContentLength)
+
+                let body = handleData[first..<searchStart]
+                self.p_handleLanguageServerPotocol(data: body)
+                self._unhandleContentLength = 0
+
+                continue
             }
 
-            guard bodyLength == rpc.body.count else {
-                Logger.error("request content length not match")
+            let headerFieldSeparator = ": ".data(using: .utf8)!
+
+            guard let range = headerData.range(of: headerFieldSeparator) else {
+                Logger.error("header can not be separated.")
                 throw RpcErrorCode.parseError.toResponseError()
             }
 
-            guard let bodyDic = rpc.body.toDictionary() else {
+            guard let fieldName =
+                String(data: headerData[..<range.lowerBound], encoding: String.Encoding.utf8)
+                , let value = String(data: headerData[range.upperBound...], encoding: .utf8)
+                else {
+                    Logger.error("header is not string.")
+                    throw RpcErrorCode.parseError.toResponseError()
+            }
+//            Logger.debug("Found header: \(fieldName), value: \(value)")
+
+            if fieldName == "Content-Length" {
+                guard let contentLength = Int(value) else {
+                    Logger.error("Content-Length value can not convert to Int.")
+                    throw RpcErrorCode.parseError.toResponseError()
+                }
+                _unhandleContentLength = contentLength
+            }
+
+        }
+
+        if let leftRange = leftDataRange {
+            _unhandledData = handleData[leftRange]
+        }
+    }
+
+    func p_handleLanguageServerPotocol(data: Data) {
+//        Logger.debug("rpc bdoy: \(data.count)" + (String(data: data, encoding: .utf8) ?? ""))
+        do {
+            guard let bodyDic = data.toDictionary() else {
                 Logger.error("request content is not json dictionary")
                 throw RpcErrorCode.parseError.toResponseError()
             }
@@ -137,7 +238,7 @@ private extension SwiftNestKit {
 
                 guard let params = bodyDic["params"]
                     , let request = RequestMessage(id: msgID, method: method, params: params) else {
-                    throw RpcErrorCode.parseError.toResponseError(msgID: msgID)
+                        throw RpcErrorCode.parseError.toResponseError(msgID: msgID)
                 }
 
                 let respData = request.response().toData()
@@ -162,67 +263,5 @@ private extension SwiftNestKit {
             Logger.error("response ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
             kStdout.write(respData)
         }
-
     }
-
-    func p_handleRpcProtocol(data: Data) throws -> (headers: [RequestHeader], body: Data) {
-        var headersData: [Data] = []
-        var body = Data()
-
-        let separatorArray = "\r\n".unicodeScalars.filter({$0.isASCII}).map({UInt8($0.value)})
-        var index = 0
-        var first = index
-        while index < data.count {
-            defer {
-                index = index + 1
-            }
-
-            // current match first separator character
-            guard data[index] == separatorArray[0] && (index + 1) < data.count else {
-                continue
-            }
-
-            // next byte match second separator character
-            guard data[index+1] == separatorArray[1] else {
-                continue
-            }
-
-            // Got a header
-            let header = data[first..<index]
-            headersData.append(header)
-
-            // Test the end of header
-            if (index + 3) < data.count
-                && data[index+2] == separatorArray[0]
-                && data[index+3] == separatorArray[1] {
-                // header end. Got body then end the while loop
-                if (index+4) < data.count {
-                    body = data[(index+4)...]
-                }
-                break
-            }
-
-            // skip next character test
-            index = index + 1
-        }
-
-        let headers = try headersData
-            .map { (data) -> (String, String) in
-                guard let str = String(data: data, encoding: String.Encoding.utf8) else {
-                    throw RpcErrorCode.parseError.toResponseError()
-                }
-                let split = str.components(separatedBy: ": ")
-                guard split.count == 2 else {
-                    throw RpcErrorCode.parseError.toResponseError()
-                }
-                return (split[0], split[1])
-            }
-            .filter { (header) -> Bool in
-                return !header.0.isEmpty && !header.1.isEmpty
-        }
-
-        return (headers, body)
-    }
-
-
 }

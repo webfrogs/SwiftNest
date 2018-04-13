@@ -12,6 +12,9 @@ struct RpcNotification {
         case initialized
         case exit
         case workspaceDidChangeConfig = "workspace/didChangeConfiguration"
+        case textDocumentDidOpen = "textDocument/didOpen"
+        case textDocumentDidChange = "textDocument/didChange"
+        case textDocumentDidClose = "textDocument/didClose"
     }
 }
 
