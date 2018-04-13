@@ -123,6 +123,7 @@ fileprivate extension SwiftNestKit {
         if let unhandledData = _unhandledData {
             if !unhandledData.isEmpty {
                 Logger.debug("Found unhandled data:" + String(data: unhandledData, encoding: .utf8)!)
+                Logger.debug("||input: " + String(data: input, encoding: .utf8)!)
                 handleData = unhandledData + input
             }
             _unhandledData = nil
@@ -250,7 +251,7 @@ fileprivate extension SwiftNestKit {
                 }
 
                 let respData = request.response().toData()
-                Logger.debug("resp ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
+//                Logger.debug("resp ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
                 kStdout.write(respData)
             } else {
                 // it's notification message, do not response

@@ -65,7 +65,7 @@ extension RpcNotification {
             }
             SourceFileManager.manager.fileDidClose(uri: uri)
         default:
-            Logger.debug("Nothing happens with this notification \(method.rawValue)")
+            Logger.debug("Received notification '\(method.rawValue)', nothing happens.")
         }
     }
 }

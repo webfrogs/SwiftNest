@@ -14,17 +14,17 @@ extension SourceFileManager {
 
     func fileDidOpen(uri: String, text: String) {
         _cachedFile[uri] = text
-        Logger.logCurrentMethodIfCalled()
+//        Logger.logCurrentMethodIfCalled()
     }
 
     func fileDidChange(uri: String, text: String) {
         _cachedFile[uri] = text
-        Logger.logCurrentMethodIfCalled()
+//        Logger.logCurrentMethodIfCalled()
     }
 
     func fileDidClose(uri: String) {
         _cachedFile[uri] = nil
-        Logger.logCurrentMethodIfCalled()
+//        Logger.logCurrentMethodIfCalled()
     }
 }
 
