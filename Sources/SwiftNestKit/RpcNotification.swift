@@ -33,7 +33,7 @@ extension RpcNotification {
             }
             guard let uri: String = fileInfo.value(keyPath: "textDocument.uri")
                 , let text: String = fileInfo.value(keyPath: "textDocument.text") else {
-                    Logger.error("notification \(method.rawValue), params wrong")
+                    Logger.error("notification \(method.rawValue), params type wrong")
                     return
             }
 
@@ -45,10 +45,13 @@ extension RpcNotification {
                 return
             }
             guard let uri: String = fileInfo.value(keyPath: "textDocument.uri")
-                , let text: String = fileInfo.value(keyPath: "textDocument.text") else {
-                    Logger.error("notification \(method.rawValue), params wrong")
+                , let textArray: [[String: Any]] = fileInfo.value(keyPath: "contentChanges")
+                , let text: String = textArray.last?.value(keyPath: "text")
+            else {
+                    Logger.error("notification \(method.rawValue), params type wrong")
                     return
             }
+
 
             SourceFileManager.manager.fileDidChange(uri: uri, text: text)
         case .textDocumentDidClose:
@@ -57,7 +60,7 @@ extension RpcNotification {
                 return
             }
             guard let uri: String = fileInfo.value(keyPath: "textDocument.uri") else {
-                    Logger.error("notification \(method.rawValue), params wrong")
+                    Logger.error("notification \(method.rawValue), params type wrong")
                     return
             }
             SourceFileManager.manager.fileDidClose(uri: uri)

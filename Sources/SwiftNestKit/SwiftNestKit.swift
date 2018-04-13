@@ -119,16 +119,21 @@ fileprivate extension SwiftNestKit {
     func p_handleNewStdin(_ input: Data) throws {
         let headerSeparator = "\r\n".data(using: .utf8)!
 
-        var handleData: Data
+        var handleData = input
         if let unhandledData = _unhandledData {
-            Logger.debug("Found unhandled data.")
-            handleData = unhandledData + input
-        } else {
-            handleData = input
+            if !unhandledData.isEmpty {
+                Logger.debug("Found unhandled data:" + String(data: unhandledData, encoding: .utf8)!)
+                handleData = unhandledData + input
+            }
+            _unhandledData = nil
         }
 
         if _unhandleContentLength > 0 {
             if _unhandleContentLength > handleData.count {
+                return
+            } else if _unhandleContentLength == handleData.count {
+                p_handleLanguageServerPotocol(data: handleData)
+                _unhandleContentLength = 0
                 return
             } else {
                 let body = handleData[..<self._unhandleContentLength]
@@ -166,7 +171,9 @@ fileprivate extension SwiftNestKit {
 
 
                 if leftDataLength < _unhandleContentLength {
-                    _unhandledData = handleData[searchStart...]
+                    if leftDataLength > 0 {
+                        _unhandledData = handleData[searchStart...]
+                    }
                     return
                 }
 
@@ -207,6 +214,7 @@ fileprivate extension SwiftNestKit {
         }
 
         if let leftRange = leftDataRange {
+            Logger.debug("left data range [\(leftRange.lowerBound), \(leftRange.upperBound)]")
             _unhandledData = handleData[leftRange]
         }
     }
@@ -215,7 +223,7 @@ fileprivate extension SwiftNestKit {
 //        Logger.debug("rpc bdoy: \(data.count)" + (String(data: data, encoding: .utf8) ?? ""))
         do {
             guard let bodyDic = data.toDictionary() else {
-                Logger.error("request content is not json dictionary")
+                Logger.error("request content is not json dictionary:" + String(data:data, encoding: .utf8)!)
                 throw RpcErrorCode.parseError.toResponseError()
             }
 
