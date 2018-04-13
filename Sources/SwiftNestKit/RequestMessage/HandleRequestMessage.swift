@@ -13,7 +13,7 @@ extension RequestMethod {
         case .initialize:
             return RequestMethod.handleInitialize
         case .textDocCompletion:
-            return RequestMethod.handleTextCompletion
+            return RequestMethod.textCompletion
         case .completionItemResolve:
             return RequestMethod.handleCompletionItemResolve
         default:
@@ -34,10 +34,6 @@ extension RequestMethod {
             "triggerCharacters": ["."],
             ]
 
-        let textDocumentSyncMap: [String: Any] = [
-            "change": 1
-        ]
-
         let capabilityMap: [String: Any] = [
 //        "hoverProvider": true,
             "completionProvider": completionMap,
@@ -52,7 +48,7 @@ extension RequestMethod {
     }
 
     static func handleCompletionItemResolve(msg: RequestMessageProtocol) throws -> MethodResultProtocol? {
-        guard let params = msg.params as? [String: Any] else {
+        guard let _ = msg.params as? [String: Any] else {
             throw ResponseError.internalError
         }
 

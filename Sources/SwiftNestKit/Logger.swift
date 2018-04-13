@@ -21,4 +21,12 @@ struct Logger {
         NSLog("SwiftNestKit[debug]: " + msg)
 #endif
     }
+
+    static func logCurrentMethodIfCalled(_ filePath: String = #file
+        , method: String = #function
+        , line: Int = #line) {
+
+        let fileName = URL(fileURLWithPath: filePath).lastPathComponent
+        debug("Method called:\n\(fileName)[\(line)], \(method) ")
+    }
 }
