@@ -2,11 +2,12 @@ INSTALL_PATH?=/usr/local/bin
 INSTALL_NAME?=swift-nest
 DEBUG?=0
 
-.PHONY: build
+all : build
+.PHONY: all build install uninstall
 
 build:
 ifeq ($(DEBUG),0)
-	swift build -c release
+	swift build -c release -Xswiftc -static-stdlib
 else
 	swift build -Xswiftc "-D" -Xswiftc "DEBUG"
 endif
