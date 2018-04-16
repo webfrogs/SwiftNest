@@ -34,6 +34,69 @@ enum CompletionItemKind: Int {
     case event = 23
     case operatorType = 24
     case typeParameter = 25
+
+    init(sourceKitKind: String) {
+        switch sourceKitKind {
+        case "source.lang.swift.decl.function.free"
+        ,"source.lang.swift.ref.function.free":
+            self = .function
+        case "source.lang.swift.decl.function.method.instance"
+        ,"source.lang.swift.ref.function.method.instance"
+        ,"source.lang.swift.decl.function.method.static"
+        ,"source.lang.swift.ref.function.method.static":
+            self = .method
+        case "source.lang.swift.decl.function.operator"
+            ,"source.lang.swift.ref.function.operator"
+            ,"source.lang.swift.decl.function.subscript"
+            ,"source.lang.swift.ref.function.subscript":
+            self = .keyword
+        case "source.lang.swift.decl.function.constructor"
+        ,"source.lang.swift.ref.function.constructor"
+        ,"source.lang.swift.decl.function.destructor"
+        ,"source.lang.swift.ref.function.destructor":
+            self = .constructor
+        case "source.lang.swift.decl.function.accessor.getter"
+        ,"source.lang.swift.ref.function.accessor.getter"
+        ,"source.lang.swift.decl.function.accessor.setter"
+        ,"source.lang.swift.ref.function.accessor.setter":
+            self = .property
+        case "source.lang.swift.decl.class"
+        ,"source.lang.swift.ref.class"
+        ,"source.lang.swift.decl.struct"
+        ,"source.lang.swift.ref.struct":
+            self = .classType
+        case "source.lang.swift.decl.enum"
+        , "source.lang.swift.ref.enum":
+            self = .enumType
+        case "source.lang.swift.decl.enumelement"
+        , "source.lang.swift.ref.enumelement":
+            self = .value
+        case "source.lang.swift.decl.protocol"
+        , "source.lang.swift.ref.protocol":
+            self = .interface
+        case "source.lang.swift.decl.typealias"
+        , "source.lang.swift.ref.typealias":
+            self = .reference
+        case "source.lang.swift.decl.var.instance"
+        , "source.lang.swift.ref.var.instance":
+            self = .field
+        case "source.lang.swift.decl.var.global"
+        ,"source.lang.swift.ref.var.global"
+        ,"source.lang.swift.decl.var.static"
+        ,"source.lang.swift.ref.var.static"
+        ,"source.lang.swift.decl.var.local"
+        ,"source.lang.swift.ref.var.local":
+            self = .variable
+
+        case "source.lang.swift.decl.extension.struct"
+        , "source.lang.swift.decl.extension.class":
+            self = .classType
+        case "source.lang.swift.decl.extension.enum":
+            self = .enumType
+        default:
+            self = .text //FIXME
+        }
+    }
 }
 
 extension RequestMethod {
@@ -98,6 +161,8 @@ extension RequestMethod {
             items = []
         }
 
+        Logger.debug("offset[\(currentOffset)].item count: \(items.count).")
+
         /**
          * ref: https://github.com/facebook/nuclide/blob/master/pkg/nuclide-swift/lib/sourcekitten/Complete.js#L57
          */
@@ -151,7 +216,7 @@ extension RequestMethod {
             return (label, snippet)
         }
 
-        Logger.debug("item count: \(items.count)")
+
 
         var distinctMap: [String: CodeCompletionItem] = [:]
         for item in items {
@@ -173,10 +238,6 @@ extension RequestMethod {
 
         var completionItems: [[String: Any]] = []
         for (_, value) in distinctMap {
-            if value.moduleName == "Swift" && (value.docBrief?.isEmpty ?? true) {
-                continue
-            }
-
             guard let sourceText = value.sourcetext
                 , let returnTypeName = value.typeName
                 else {
@@ -184,18 +245,51 @@ extension RequestMethod {
             }
 
             let textInfo = sourceTextHandler(sourceText)
+            let kind = CompletionItemKind(sourceKitKind: value.kind)
 
             var item: [String: Any] = [
                 "label": textInfo.label,
-                "kind": CompletionItemKind.function.rawValue,
+                "kind": kind.rawValue,
                 "detail": returnTypeName,
                 "sortText": textInfo.label,
                 "insertText": textInfo.snippet,
                 "insertTextFormat": 2, // snippet
             ]
 
+            if value.kind == "source.lang.swift.decl.var.local"
+                && returnTypeName != "<<error type>>" {
+                item["detail"] = nil
+            }
+
+            var document: String = ""
             if let docBrief = value.docBrief, !docBrief.isEmpty {
-                item["documentation"] = docBrief
+                document += docBrief
+            }
+
+            if !document.isEmpty {
+                document += "\n\n"
+            }
+            if let moduleName = value.moduleName, !moduleName.isEmpty {
+                document += "**Module:** \(moduleName)"
+            }
+
+//            if !document.isEmpty {
+//                document += "\n\n"
+//            }
+//
+//            if kind == .function || kind == .method {
+//                if let name = value.name, !name.isEmpty {
+//                    document += "**Signature:**       \(returnTypeName) \(name)"
+//                }
+//            }
+
+
+
+            if !document.isEmpty {
+                item["documentation"] = [
+                    "kind": "markdown",
+                    "value": document,
+                ]
             }
 
             completionItems.append(item)
