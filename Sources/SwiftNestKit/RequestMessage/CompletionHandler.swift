@@ -83,10 +83,10 @@ extension RequestMethod {
             currentLine += 1
         }
 
-        let request = Request.codeCompletionRequest(file: ""
+        let request = Request.codeCompletionRequest(file: file.path
             , contents: text
             , offset: currentOffset
-            , arguments: [file.path])
+            , arguments: SourceFileManager.manager.generateCompletionArgs(filePath: file.path))
 
 //        Logger.debug("\(text.count)-\(currentOffset)...."+text)
 
@@ -151,42 +151,61 @@ extension RequestMethod {
             return (label, snippet)
         }
 
+        Logger.debug("item count: \(items.count)")
 
-        let itemsList = items.compactMap { (item) -> [String: Any]? in
-            guard let docBrief = item.docBrief, !docBrief.isEmpty else {
-                return nil
+        var distinctMap: [String: CodeCompletionItem] = [:]
+        for item in items {
+            guard let sourceText = item.sourcetext, !sourceText.isEmpty else {
+                continue
             }
 
-            if item.context == "source.codecompletion.context.superclass"
-                && item.kind == "source.lang.swift.decl.function.method.instance" {
-                // filter superclass methods
-                return nil
+            guard let sameItem = distinctMap[sourceText] else {
+                distinctMap[sourceText] = item
+                continue
             }
 
-            guard let sourceText = item.sourcetext
-                , let returnTypeName = item.typeName
+            if item.context == "source.codecompletion.context.thisclass"
+                && sameItem.context == "source.codecompletion.context.superclass" {
+                // replace sameItem
+                distinctMap[sourceText] = item
+            }
+        }
+
+        var completionItems: [[String: Any]] = []
+        for (_, value) in distinctMap {
+            if value.moduleName == "Swift" && (value.docBrief?.isEmpty ?? true) {
+                continue
+            }
+
+            guard let sourceText = value.sourcetext
+                , let returnTypeName = value.typeName
                 else {
                     return nil
             }
 
             let textInfo = sourceTextHandler(sourceText)
 
-            return [
+            var item: [String: Any] = [
                 "label": textInfo.label,
                 "kind": CompletionItemKind.function.rawValue,
                 "detail": returnTypeName,
                 "sortText": textInfo.label,
-                "documentation": docBrief,
                 "insertText": textInfo.snippet,
                 "insertTextFormat": 2, // snippet
             ]
+
+            if let docBrief = value.docBrief, !docBrief.isEmpty {
+                item["documentation"] = docBrief
+            }
+
+            completionItems.append(item)
         }
 
 //        Logger.debug("item count: \(itemsList.count)")
 
         let result: [String: Any] = [
             "isIncomplete": false,
-            "items": itemsList
+            "items": completionItems
         ]
 
         return result
