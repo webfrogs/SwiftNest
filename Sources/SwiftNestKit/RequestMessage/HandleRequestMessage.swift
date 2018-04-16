@@ -35,7 +35,7 @@ extension RequestMethod {
                 throw RpcErrorCode.invalidParams.toResponseError(msgID: msg.id)
         }
         SourceFileManager.manager.workspaceRootPath = rootPath
-        Logger.debug("Set workspace root path: \(rootPath)")
+        Logger.info("Set workspace root path: \(rootPath)")
         
 
 //        let completionTrigger = Array("abcdefghigklmnopqrstuvwxyz.").map(String.init)

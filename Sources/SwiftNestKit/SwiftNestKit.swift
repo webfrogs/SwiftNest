@@ -86,6 +86,7 @@ private extension SwiftNestKit {
         let stdinData = kStdin.availableData
         guard !stdinData.isEmpty else {
             if SwiftNestKit.stdinEmptyCount >= SwiftNestKit.kMaxStdinEmptyCount {
+                Logger.error("Receved too many empty data, exit.")
                 exit(1)
             }
             Logger.debug("standard input is empty. Ignore")
@@ -101,7 +102,7 @@ private extension SwiftNestKit {
 
         } catch let error as ResponseError {
             let respData = Response.failure(error).toData()
-            Logger.debug("something wrong,response ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
+            Logger.error("something wrong,response ->\n"+String(data: respData, encoding: String.Encoding.utf8)!)
             kStdout.write(respData)
         } catch {
             Logger.error("Catch unknown error.")
@@ -117,34 +118,41 @@ private extension SwiftNestKit {
 // MARK: - Extension: Handle LSP
 fileprivate extension SwiftNestKit {
     func p_handleNewStdin(_ input: Data) throws {
-        let headerSeparator = "\r\n".data(using: .utf8)!
+//        Logger.debug("unhandleContentLength: \(_unhandleContentLength) | unhandled data count: \(_unhandledData?.count ?? 0) | input count: \(input.count)")
 
-        var handleData = input
+        var handleData = Data(repeating: 0, count: (_unhandledData?.count ?? 0) + input.count)
         if let unhandledData = _unhandledData {
-            if !unhandledData.isEmpty {
-                Logger.debug("Found unhandled data:" + String(data: unhandledData, encoding: .utf8)!)
-                Logger.debug("||input: " + String(data: input, encoding: .utf8)!)
-                handleData = unhandledData + input
+            handleData.withUnsafeMutableBytes { (pt: UnsafeMutablePointer<UInt8>) -> Void in
+                unhandledData.copyBytes(to: pt, count: unhandledData.count)
+                input.copyBytes(to: pt.advanced(by: unhandledData.count), count: input.count)
             }
             _unhandledData = nil
+        } else {
+            handleData = input
         }
 
         if _unhandleContentLength > 0 {
             if _unhandleContentLength > handleData.count {
+//                Logger.debug("Waiting for more data. \(handleData.count)/\(_unhandleContentLength)")
+                _unhandledData = handleData
                 return
             } else if _unhandleContentLength == handleData.count {
+//                Logger.debug("Got exactlly data, start to handle.")
                 p_handleLanguageServerPotocol(data: handleData)
                 _unhandleContentLength = 0
                 return
             } else {
+//                Logger.debug("Got more data, split data...")
                 let body = handleData[..<self._unhandleContentLength]
                 self.p_handleLanguageServerPotocol(data: body)
-                self._unhandleContentLength = 0
-
                 handleData = handleData[self._unhandleContentLength...]
+
+//                Logger.debug("Handle data:" + String(data: handleData, encoding: String.Encoding.utf8)!)
+                self._unhandleContentLength = 0
             }
         }
 
+        let headerSeparator = "\r\n".data(using: .utf8)!
 
         var leftDataRange: Range<Data.Index>?
         var searchStart = handleData.startIndex
@@ -202,7 +210,7 @@ fileprivate extension SwiftNestKit {
                     Logger.error("header is not string.")
                     throw RpcErrorCode.parseError.toResponseError()
             }
-//            Logger.debug("Found header: \(fieldName), value: \(value)")
+            Logger.debug("Found header: \(fieldName), value: \(value)")
 
             if fieldName == "Content-Length" {
                 guard let contentLength = Int(value) else {
@@ -221,7 +229,7 @@ fileprivate extension SwiftNestKit {
     }
 
     func p_handleLanguageServerPotocol(data: Data) {
-//        Logger.debug("rpc bdoy: \(data.count)" + (String(data: data, encoding: .utf8) ?? ""))
+//        Logger.debug("rpc bdoy[\(data.count)]: " + (String(data: data, encoding: .utf8) ?? ""))
         do {
             guard let bodyDic = data.toDictionary() else {
                 Logger.error("request content is not json dictionary:" + String(data:data, encoding: .utf8)!)
