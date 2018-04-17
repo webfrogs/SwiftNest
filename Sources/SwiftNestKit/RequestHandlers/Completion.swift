@@ -266,12 +266,12 @@ extension RequestMethod {
                 document += docBrief
             }
 
-            if !document.isEmpty {
-                document += "\n\n"
-            }
-            if let moduleName = value.moduleName, !moduleName.isEmpty {
-                document += "**Module:** \(moduleName)"
-            }
+            // if !document.isEmpty {
+            //     document += "\n\n"
+            // }
+            // if let moduleName = value.moduleName, !moduleName.isEmpty {
+            //     document += "**Module:** \(moduleName)"
+            // }
 
 //            if !document.isEmpty {
 //                document += "\n\n"
