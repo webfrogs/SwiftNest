@@ -10,4 +10,4 @@ cd SwiftNest
 make install 
 ```
 
-The default installation path is `/usr/local/bin/swift-nest`.
+The default installation path is `/usr/local/bin/swift-nest`
