@@ -22,17 +22,14 @@ extension SourceFileManager {
 
     func fileDidOpen(uri: String, text: String) {
         _cachedFile[uri] = text
-//        Logger.logCurrentMethodIfCalled()
     }
 
     func fileDidChange(uri: String, text: String) {
         _cachedFile[uri] = text
-//        Logger.logCurrentMethodIfCalled()
     }
 
     func fileDidClose(uri: String) {
         _cachedFile[uri] = nil
-//        Logger.logCurrentMethodIfCalled()
     }
 }
 
@@ -59,6 +56,17 @@ private extension SourceFileManager {
 
 
         result.append(contentsOf: ["-I", "\(workspaceURL.path)/.build/debug"])
+
+        #if os(macOS)
+        // SPM only support macOS project for now.
+        if let sdkPath = Process.syncRunWithOutput(shell: "xcrun --sdk macosx --show-sdk-path")
+        , !sdkPath.isEmpty {
+            result.append(contentsOf: [
+                "-target", "x86_64-apple-macosx10.10",
+                "-sdk", sdkPath,
+                ])
+        }
+        #endif
 
         return result
     }

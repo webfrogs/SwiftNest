@@ -99,7 +99,6 @@ extension Response {
             contentMap["error"] = error.toJsonDic()
         }
 
-
         let respContentData: Data
         do {
             if JSONSerialization.isValidJSONObject(contentMap) {

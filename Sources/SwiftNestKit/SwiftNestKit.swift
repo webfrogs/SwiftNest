@@ -8,7 +8,6 @@
 import Foundation
 
 
-
 public protocol JsonObjectType {}
 extension Dictionary: JsonObjectType where Key==String, Value== Any {}
 
@@ -16,14 +15,13 @@ public protocol MethodResultProtocol {
     func toJsonObject() -> JsonObjectType
 }
 
-extension Dictionary: MethodResultProtocol where Key==String, Value== Any {
+extension Dictionary: MethodResultProtocol where Key==String, Value==Any {
     public func toJsonObject() -> JsonObjectType {
         return self
     }
 }
 
 public typealias MethodHandler = (RequestMessageProtocol) throws -> MethodResultProtocol?
-
 
 public extension SwiftNestKit {
     func register(method: RequestMethod, handler: @escaping MethodHandler) {
@@ -57,17 +55,21 @@ public class SwiftNestKit {
             register(method: method, handler: method.getHandler())
         }
 
-
-        NotificationCenter.default.addObserver(self, selector: #selector(p_receivedInputData(notification:)), name: .NSFileHandleDataAvailable, object: nil)
+        kStdInputObserver = NotificationCenter.default.addObserver(forName: .NSFileHandleDataAvailable, object: nil, queue: nil) { [weak self] (noti) in
+            self?.p_receivedInputData(notification: noti)
+        }
     }
 
     deinit {
-        NotificationCenter.default.removeObserver(self)
+        if let observer = kStdInputObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
     private var _methodHanlderMap: [RequestMethod: MethodHandler] = [:]
 
     private let kStdin = FileHandle.standardInput
     private let kStdout = FileHandle.standardOutput
+    private var kStdInputObserver: NSObjectProtocol?
 
     private static let kMaxStdinEmptyCount = 50
     private static var stdinEmptyCount = 0
@@ -78,7 +80,7 @@ public class SwiftNestKit {
 }
 
 private extension SwiftNestKit {
-    @objc func p_receivedInputData(notification: Notification) {
+    func p_receivedInputData(notification: Notification) {
         defer {
             kStdin.waitForDataInBackgroundAndNotify()
         }
@@ -94,7 +96,7 @@ private extension SwiftNestKit {
             return
         }
         SwiftNestKit.stdinEmptyCount = 0
-        Logger.debug(String(data: stdinData, encoding: String.Encoding.utf8) ?? "")
+//        Logger.debug(String(data: stdinData, encoding: String.Encoding.utf8) ?? "")
 
         do {
 
@@ -210,7 +212,7 @@ fileprivate extension SwiftNestKit {
                     Logger.error("header is not string.")
                     throw RpcErrorCode.parseError.toResponseError()
             }
-            Logger.debug("Found header: \(fieldName), value: \(value)")
+//            Logger.debug("Found header: \(fieldName), value: \(value)")
 
             if fieldName == "Content-Length" {
                 guard let contentLength = Int(value) else {
@@ -223,7 +225,7 @@ fileprivate extension SwiftNestKit {
         }
 
         if let leftRange = leftDataRange {
-            Logger.debug("left data range [\(leftRange.lowerBound), \(leftRange.upperBound)]")
+//            Logger.debug("left data range [\(leftRange.lowerBound), \(leftRange.upperBound)]")
             _unhandledData = handleData[leftRange]
         }
     }
