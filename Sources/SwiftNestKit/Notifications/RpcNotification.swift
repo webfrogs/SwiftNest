@@ -15,6 +15,7 @@ struct RpcNotification {
         case textDocumentDidOpen = "textDocument/didOpen"
         case textDocumentDidChange = "textDocument/didChange"
         case textDocumentDidClose = "textDocument/didClose"
+        case textDocumentDidSave = "textDocument/didSave"
     }
 
     private var _fileCache: [String: String] = [:]
@@ -26,6 +27,8 @@ extension RpcNotification {
         case .exit:
             Logger.info("Exit.")
             exit(0)
+        case .textDocumentDidSave:
+            SourceFileManager.manager.buildCurrentProject()
         case .textDocumentDidOpen:
             guard let fileInfo = params as? [String: Any] else {
                 Logger.error("notification \(method.rawValue), params wrong")
@@ -51,7 +54,6 @@ extension RpcNotification {
                     Logger.error("notification \(method.rawValue), params type wrong")
                     return
             }
-
 
             SourceFileManager.manager.fileDidChange(uri: uri, text: text)
         case .textDocumentDidClose:

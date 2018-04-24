@@ -15,7 +15,7 @@ extension RequestMethod {
         
 
 //        let completionTrigger = Array("abcdefghigklmnopqrstuvwxyz.").map(String.init)
-        let completionTrigger = ["."]
+        let completionTrigger = Array(".:(#").map(String.init)
 
         let completionMap: [String: Any] = [
             "resolveProvider": false,

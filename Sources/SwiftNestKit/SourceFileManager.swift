@@ -8,6 +8,10 @@
 import Foundation
 
 extension SourceFileManager {
+    var isSPMProject: Bool {
+        return workspaceRootPath.map({URL(fileURLWithPath: $0)})?.isFileURL ?? false
+    }
+
     func generateCompletionArgs(filePath: String) -> [String] {
         var result = p_getBaseCompilerArgs()
         if result.isEmpty {
@@ -31,10 +35,24 @@ extension SourceFileManager {
     func fileDidClose(uri: String) {
         _cachedFile[uri] = nil
     }
+
+    func buildCurrentProject() {
+        guard isSPMProject else {
+            return
+        }
+
+        if !Process.syncRun(shell: "swift build", currentDir: workspaceRootPath) {
+            Logger.info("project build failed.")
+        }
+    }
 }
 
 class SourceFileManager {
-    var workspaceRootPath: String?
+    var workspaceRootPath: String? {
+        didSet {
+            buildCurrentProject()
+        }
+    }
 
     static let manager = SourceFileManager()
     private init() {}
